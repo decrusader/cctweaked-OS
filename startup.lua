@@ -1,8 +1,49 @@
 local w, h = term.getSize()
-local blacklist = {["startup.lua"]=true, ["rom"]=true}
+local blacklist = {["startup.lua"]=true, ["rom"]=true, ["installatie_klaar"]=true}
 local verwijderModus = false
 
--- 1. Animatie (3 sec)
+-- 1. CONFIGURATIE: Voeg hier je favoriete programma's toe
+-- Formaat: { "bestandsnaam", "directe_link_naar_raw_github_bestand" }
+local installatieLijst = {
+    { "inventory_scan", "https://pastebin.com/raw/example1" },
+    { "quarry_script", "https://raw.githubusercontent.com/user/repo/main/miner.lua" }
+}
+
+-- 2. INSTALLATIE FUNCTIE (Draait alleen de eerste keer)
+local function checkInstallatie()
+    if not fs.exists("installatie_klaar") then
+        term.clear()
+        term.setCursorPos(1, 1)
+        term.setTextColor(colors.yellow)
+        print("Systeem voor de eerste keer opstarten...")
+        print("Bezig met downloaden van basis-apps...")
+
+        for _, item in ipairs(installatieLijst) do
+            local naam, url = item[1], item[2]
+            write("Downloaden: " .. naam .. "... ")
+            
+            local response = http.get(url)
+            if response then
+                local file = fs.open(naam, "w")
+                file.write(response.readAll())
+                file.close()
+                response.close()
+                print("OK")
+            else
+                print("FOUT")
+            end
+        end
+        
+        -- Maak een marker-bestand zodat dit niet elke keer gebeurt
+        local f = fs.open("installatie_klaar", "w")
+        f.write("klaar")
+        f.close()
+        print("\nInstallatie voltooid! Starten...")
+        sleep(2)
+    end
+end
+
+-- 3. ANIMATIE
 local function startAnimatie()
     local tekens = {"/", "-", "\\", "|"}
     local eindTijd = os.clock() + 3
@@ -18,37 +59,35 @@ local function startAnimatie()
     end
 end
 
--- 2. Menu Tekenen
+-- 4. MENU TEKENEN
 local function tekenMenu()
     term.setBackgroundColor(colors.gray)
     term.clear()
     
-    -- Titel
     term.setCursorPos(w/2 - 7, 1)
     term.setTextColor(colors.white)
-    term.write("MIJN COMPUTER")
+    term.write("GEMINI OS v2.0")
 
-    -- KNOP: Nieuw Script
+    -- KNOPPEN RIJ
     term.setCursorPos(2, 3)
     term.setBackgroundColor(colors.green)
     term.setTextColor(colors.black)
     term.write(" [+] NIEUW ")
 
-    -- KNOP: Verwijder Modus (Prullenbak)
-    term.setCursorPos(14, 3)
-    if verwijderModus then
-        term.setBackgroundColor(colors.orange)
-        term.write(" [ ANNULEREN ] ")
-    else
-        term.setBackgroundColor(colors.red)
-        term.write(" [ PRULLENBAK ] ")
-    end
+    term.setCursorPos(12, 3)
+    term.setBackgroundColor(colors.purple)
+    term.setTextColor(colors.white)
+    term.write(" [ GITHUB ] ")
 
-    -- Bestanden Lijst
+    term.setCursorPos(w - 7, 3)
+    term.setBackgroundColor(verwijderModus and colors.orange or colors.red)
+    term.write(" [ X ] ")
+
+    -- BESTANDEN LIJST
     term.setBackgroundColor(colors.gray)
     term.setTextColor(colors.white)
     term.setCursorPos(2, 5)
-    term.write(verwijderModus and "Kies om te WISSEN:" or "Programma's:")
+    term.write(verwijderModus and "VERWIJDER MODUS:" or "Mijn Apps:")
 
     local files = fs.list("/")
     local yPos = 6
@@ -57,57 +96,69 @@ local function tekenMenu()
     for _, file in ipairs(files) do
         if not blacklist[file] then
             term.setCursorPos(4, yPos)
-            -- Kleur verandert op basis van modus
             term.setBackgroundColor(verwijderModus and colors.red or colors.blue)
-            term.setTextColor(colors.white)
             term.write(" " .. file .. " ")
-            
             fileMap[yPos] = file
             yPos = yPos + 2
             if yPos > h - 1 then break end
         end
     end
-    
     return fileMap
 end
 
--- 3. Hoofdprogramma
+-- 5. HOOFDPROGRAMMA
+if not http then
+    print("Error: HTTP moet aanstaan in de server config!")
+    return
+end
+
+checkInstallatie()
 startAnimatie()
+
 while true do
     local fileMap = tekenMenu()
     local event, side, x, y = os.pullEvent("mouse_click")
     
-    -- Klik op "Nieuw Script"
-    if y == 3 and x >= 2 and x <= 11 then
-        verwijderModus = false
-        term.setBackgroundColor(colors.black)
-        term.clear()
-        term.setCursorPos(1,1)
-        term.setTextColor(colors.yellow)
-        write("Naam van nieuw script: ")
-        local naam = read()
-        if naam ~= "" then shell.run("edit", naam) end
+    -- Nieuw Script
+    if y == 3 and x >= 2 and x <= 10 then
+        term.setBackgroundColor(colors.black); term.clear(); term.setCursorPos(1,1)
+        write("Naam: "); local n = read()
+        if n ~= "" then shell.run("edit", n) end
 
-    -- Klik op "Prullenbak / Annuleren"
-    elseif y == 3 and x >= 14 and x <= 28 then
+    -- GitHub Import
+    elseif y == 3 and x >= 12 and x <= 22 then
+        term.setBackgroundColor(colors.black); term.clear(); term.setCursorPos(1,1)
+        term.setTextColor(colors.purple)
+        print("-- GITHUB IMPORT --")
+        write("Bestandsnaam: "); local n = read()
+        write("Raw URL: "); local u = read()
+        
+        local res = http.get(u)
+        if res then
+            local f = fs.open(n, "w")
+            f.write(res.readAll())
+            f.close()
+            res.close()
+            print("Succesvol gedownload!")
+        else
+            print("Download mislukt. Controleer URL.")
+        end
+        sleep(2)
+
+    -- Prullenbak
+    elseif y == 3 and x >= w-7 then
         verwijderModus = not verwijderModus
 
-    -- Klik op een bestand in de lijst
+    -- Bestand Actie
     elseif fileMap[y] and x >= 4 then
-        local gekozenFile = fileMap[y]
-        
+        local f = fileMap[y]
         if verwijderModus then
-            -- VERWIJDEREN
-            fs.delete(gekozenFile)
-            verwijderModus = false -- Zet modus uit na verwijderen
+            fs.delete(f)
+            verwijderModus = false
         else
-            -- UITVOEREN
-            term.setBackgroundColor(colors.black)
-            term.clear()
-            term.setCursorPos(1,1)
-            shell.run(gekozenFile)
-            print("\nKlaar. Druk op een toets...")
-            os.pullEvent("key")
+            term.setBackgroundColor(colors.black); term.clear(); term.setCursorPos(1,1)
+            shell.run(f)
+            print("\nKlaar. Klik/Toets..."); os.pullEvent()
         end
     end
 end
