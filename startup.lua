@@ -7,10 +7,12 @@ local function startAnimatie()
     local eindTijd = os.clock() + 3
     local i = 1
     while os.clock() < eindTijd do
+        term.setBackgroundColor(colors.black)
         term.clear()
         term.setCursorPos(w/2 - 5, h/2)
-        term.setTextColor(colors.gold)
-        print("Laden " .. tekens[i])
+        -- VERBETERING: colors.yellow in plaats van colors.gold
+        term.setTextColor(colors.yellow) 
+        term.write("Laden " .. tekens[i])
         i = i % #tekens + 1
         sleep(0.1)
     end
@@ -21,19 +23,21 @@ local function tekenMenu()
     term.setBackgroundColor(colors.gray)
     term.clear()
     
-    -- Knop 1: Programma A
-    term.setCursorPos(2, 4)
+    -- Titel
+    term.setCursorPos(w/2 - 7, 2)
+    term.setTextColor(colors.white)
+    term.write("SYSTEM ONLINE")
+
+    -- Knop 1: Programma (Rij 5)
+    term.setCursorPos(4, 5)
     term.setBackgroundColor(colors.blue)
-    term.write(" [ Programma A ] ")
+    term.setTextColor(colors.white)
+    term.write(" [ START PROGRAMMA ] ")
     
-    -- Knop 2: Nieuw Bestand
-    term.setCursorPos(2, 8)
+    -- Knop 2: Nieuw Bestand (Rij 8)
+    term.setCursorPos(4, 8)
     term.setBackgroundColor(colors.green)
-    term.write(" [ Nieuw Script ] ")
-    
-    term.setBackgroundColor(colors.gray)
-    term.setCursorPos(2, 2)
-    print("Welkom, Gebruiker (Touch)")
+    term.write(" [ NIEUW SCRIPT    ] ")
 end
 
 -- 3. Hoofdprogramma
@@ -42,13 +46,25 @@ while true do
     tekenMenu()
     local event, side, x, y = os.pullEvent("mouse_click")
     
-    if y == 4 and x >= 2 and x <= 18 then
-        shell.run("hello") -- Vervang door jouw programma
-    elseif y == 8 and x >= 2 and x <= 18 then
+    -- Check of er op de blauwe knop is geklikt (Rij 5)
+    if y == 5 and x >= 4 and x <= 24 then
+        term.setBackgroundColor(colors.black)
         term.clear()
         term.setCursorPos(1,1)
-        print("Bestandsnaam:")
+        shell.run("hello") -- Verander "hello" in jouw bestandsnaam
+        print("\nPress any key to return...")
+        os.pullEvent("key")
+
+    -- Check of er op de groene knop is geklikt (Rij 8)
+    elseif y == 8 and x >= 4 and x <= 24 then
+        term.setBackgroundColor(colors.black)
+        term.clear()
+        term.setCursorPos(1,1)
+        term.setTextColor(colors.yellow)
+        write("Naam van nieuw script: ")
         local naam = read()
-        shell.run("edit", naam)
+        if naam ~= "" then
+            shell.run("edit", naam)
+        end
     end
 end
