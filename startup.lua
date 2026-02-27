@@ -1,9 +1,8 @@
 local w, h = term.getSize()
-
--- Lijst van bestanden die we NIET op het bureaublad willen zien
 local blacklist = {["startup.lua"]=true, ["rom"]=true}
+local verwijderModus = false
 
--- 1. Animatie
+-- 1. Animatie (3 sec)
 local function startAnimatie()
     local tekens = {"/", "-", "\\", "|"}
     local eindTijd = os.clock() + 3
@@ -19,7 +18,7 @@ local function startAnimatie()
     end
 end
 
--- 2. Menu Tekenen met Bestandenlijst
+-- 2. Menu Tekenen
 local function tekenMenu()
     term.setBackgroundColor(colors.gray)
     term.clear()
@@ -29,31 +28,43 @@ local function tekenMenu()
     term.setTextColor(colors.white)
     term.write("MIJN COMPUTER")
 
-    -- Knop: Nieuw Script (altijd bovenaan)
+    -- KNOP: Nieuw Script
     term.setCursorPos(2, 3)
     term.setBackgroundColor(colors.green)
     term.setTextColor(colors.black)
-    term.write(" [+] NIEUW SCRIPT ")
+    term.write(" [+] NIEUW ")
 
-    -- Bestanden scannen en tonen
+    -- KNOP: Verwijder Modus (Prullenbak)
+    term.setCursorPos(14, 3)
+    if verwijderModus then
+        term.setBackgroundColor(colors.orange)
+        term.write(" [ ANNULEREN ] ")
+    else
+        term.setBackgroundColor(colors.red)
+        term.write(" [ PRULLENBAK ] ")
+    end
+
+    -- Bestanden Lijst
     term.setBackgroundColor(colors.gray)
     term.setTextColor(colors.white)
     term.setCursorPos(2, 5)
-    term.write("Programma's:")
+    term.write(verwijderModus and "Kies om te WISSEN:" or "Programma's:")
 
     local files = fs.list("/")
     local yPos = 6
-    local fileMap = {} -- Om klik-locaties te onthouden
+    local fileMap = {}
 
     for _, file in ipairs(files) do
         if not blacklist[file] then
             term.setCursorPos(4, yPos)
-            term.setBackgroundColor(colors.blue)
+            -- Kleur verandert op basis van modus
+            term.setBackgroundColor(verwijderModus and colors.red or colors.blue)
+            term.setTextColor(colors.white)
             term.write(" " .. file .. " ")
             
-            fileMap[yPos] = file -- Sla op welke file bij welke regel hoort
-            yPos = yPos + 2 -- Ruimte tussen knoppen
-            if yPos > h - 1 then break end -- Stop als scherm vol is
+            fileMap[yPos] = file
+            yPos = yPos + 2
+            if yPos > h - 1 then break end
         end
     end
     
@@ -67,25 +78,36 @@ while true do
     local event, side, x, y = os.pullEvent("mouse_click")
     
     -- Klik op "Nieuw Script"
-    if y == 3 and x >= 2 and x <= 18 then
+    if y == 3 and x >= 2 and x <= 11 then
+        verwijderModus = false
         term.setBackgroundColor(colors.black)
         term.clear()
         term.setCursorPos(1,1)
         term.setTextColor(colors.yellow)
         write("Naam van nieuw script: ")
         local naam = read()
-        if naam ~= "" then
-            shell.run("edit", naam)
-        end
+        if naam ~= "" then shell.run("edit", naam) end
 
-    -- Klik op een gegenereerd programma
+    -- Klik op "Prullenbak / Annuleren"
+    elseif y == 3 and x >= 14 and x <= 28 then
+        verwijderModus = not verwijderModus
+
+    -- Klik op een bestand in de lijst
     elseif fileMap[y] and x >= 4 then
         local gekozenFile = fileMap[y]
-        term.setBackgroundColor(colors.black)
-        term.clear()
-        term.setCursorPos(1,1)
-        shell.run(gekozenFile)
-        print("\nKlaar. Druk op een toets...")
-        os.pullEvent("key")
+        
+        if verwijderModus then
+            -- VERWIJDEREN
+            fs.delete(gekozenFile)
+            verwijderModus = false -- Zet modus uit na verwijderen
+        else
+            -- UITVOEREN
+            term.setBackgroundColor(colors.black)
+            term.clear()
+            term.setCursorPos(1,1)
+            shell.run(gekozenFile)
+            print("\nKlaar. Druk op een toets...")
+            os.pullEvent("key")
+        end
     end
 end
